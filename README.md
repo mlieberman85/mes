@@ -1,3 +1,14 @@
+# MES
+
+What is MES?
+
+MES is just a simple NES emulator mostly for educational purposes. It uses web assembly
+for running in the browser.
+
+The design is also an exercise in getting better at abstractions and writing maintainable,
+easily testable code.
+
+See below for webpack documentation 
 ## How to install
 
 ```sh
