@@ -1,6 +1,10 @@
+use std::string::ToString;
+use strum_macros::*;
+
 #[derive(Debug)]
 #[derive(Clone)]
 #[derive(Copy)]
+#[derive(Display)]
 /// List of all NES instructions. This also includes "illegal" opcode based instructions.
 pub enum Instruction {
     // Taken from: http://nesdev.com/6502.txt
@@ -174,7 +178,7 @@ pub enum AddressingMode {
     IndexedIndirect,
 
     /// aka "Post-Indexed Indirect" "Indirect,Y" "(d),y"
-    /// ($LL, Y)
+    /// ($LL), Y
     IndirectIndexed
 }
 
@@ -198,7 +202,7 @@ pub enum DecodeError {
     }
 }
 
-trait Decode {
+pub trait Decode {
     fn decode(&self) -> Result<DecodedOpcode, DecodeError>;
 }
 

@@ -1,3 +1,5 @@
+use crate::cpu::opcode::*;
+
 const ROM_START: usize = 0x8000;
 const ROM_END: usize =0xFFFF;
 
@@ -112,11 +114,74 @@ impl ROMHeader {
 }
 
 trait DisassembleRom {
-    fn disassemble_prg_rom(&self) -> String;
+    fn disassemble_prg_rom(&self) -> Result<String, DecodeError>;
 }
 
 impl DisassembleRom for ROM {
-    fn disassemble_prg_rom(&self) -> String {
-        unimplemented!()
+    /// Disassembles a rom into 6502 assembly. I assume this will fail on overdumped roms due to
+    /// potential for junk data passed into the prg rom.
+    fn disassemble_prg_rom(&self) -> Result<String, DecodeError> {
+        let mut head: usize = 0;
+        let mut disassembled = String::new();
+        while head < self.prg.len() {
+            let opcode = self.prg[head];
+            let decoded_opcode = opcode.decode()?;
+            head += 1;
+            // See the Addressing mode comments for what the operands look like disassembled.
+            // Reminder: 6502 is little endian, so two byte operands are reversed when disassembled.
+            let line = match decoded_opcode.mode {
+                AddressingMode::ZeroPage => {
+                    format!("{} ${:X?}", decoded_opcode.instruction.to_string(), self.prg[head])
+                },
+                AddressingMode::IndexedZeroPageX => {
+                    format!("{} ${:X?},X", decoded_opcode.instruction.to_string(), self.prg[head])
+                },
+                AddressingMode::IndexedZeroPageY => {
+                    format!("{} ${:X?},Y", decoded_opcode.instruction.to_string(), self.prg[head])
+                },
+                AddressingMode::Absolute => {
+                    let temp = format!("{} ${:X?}{:X?}", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
+                    head += 1;
+                    temp
+                },
+                AddressingMode::IndexedAbsoluteX => {
+                    let temp = format!("{} ${:X?}{:X?},X", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
+                    head += 1;
+                    temp
+                },
+                AddressingMode::IndexedAbsoluteY => {
+                    let temp = format!("{} ${:X?}{:X?},Y", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
+                    head += 1;
+                    temp
+                },
+                AddressingMode::Indirect => {
+                    let temp = format!("{} $({:X?}{:X?})", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
+                    head += 1;
+                    temp
+                },
+                AddressingMode::Implied => {
+                    format!("{}", decoded_opcode.instruction.to_string())
+                },
+                AddressingMode::Accumulator => {
+                    format!("{} A", decoded_opcode.instruction.to_string())
+                },
+                AddressingMode::Immediate => {
+                    format!("{} #${:X?}", decoded_opcode.instruction.to_string(), self.prg[head])
+                },
+                AddressingMode::Relative => {
+                    format!("{} *{}", decoded_opcode.instruction.to_string(), self.prg[head] as i8)
+                },
+                AddressingMode::IndexedIndirect => {
+                    format!("{} (${:X?}, X)", decoded_opcode.instruction.to_string(), self.prg[head])
+                },
+                AddressingMode::IndirectIndexed => {
+                    format!("{} (${:X?}), Y", decoded_opcode.instruction.to_string(), self.prg[head])
+                },
+            };
+            disassembled.push_str(&format!("{}\n", line));
+            head += 1;
+        }
+
+        Ok(disassembled)
     }
 }
