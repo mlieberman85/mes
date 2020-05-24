@@ -496,7 +496,7 @@ impl Decode for Opcode {
                 0x7B => Ok(DecodedOpcode { instruction: RRA, mode: IndexedAbsoluteY, cycles: 7 }),
                 0x7F => Ok(DecodedOpcode { instruction: RRA, mode: IndexedAbsoluteX, cycles: 7 }),
 
-                _ => Err(self::DecodeError::IllegalUnimplementedOpcode {opcode: *self})
+                _ => Err(DecodeError::IllegalUnimplementedOpcode {opcode: *self})
             }
         }
     }
