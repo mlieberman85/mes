@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 #[derive(Clone)]
 #[derive(Copy)]
@@ -108,46 +107,45 @@ pub enum Instruction {
 /// refer to what enum in the below list.
 ///
 /// ZeroPage is sometimes referred to as Zero Page or Zero-Page.
-/// Z is used to denote a digit in the assembly. Want to make sure it's clear since X is already
-/// a register and used in some instructions and any character part of hex could be confusing.
+/// LL and BB is used to indicate 8 bit byte. HHLL is Used to indicate 16 bit word.
 ///
 /// Some of below might not be 100% accurate based on differences in assembler documentation and I
 /// might be confusing them.
 pub enum AddressingMode {
     /// aka "Zero-Page" "d"
-    /// $ZZ
+    /// $LL
     ZeroPage,
 
     /// aka "Zero-Page Indexed" "Zero Page,X" "z,x"
     /// This and IndexedZeroPageY are largely equivalent and only differ on what register is used
     /// based on instruction.
-    /// $ZZ,X
+    /// $LL,X
     IndexedZeroPageX,
 
     /// aka "Zero-page Indexed" "Zero Page,Y "z,y"
     /// This and IndexedZeroPageY are largely equivalent and only differ on what register is used
     /// based on instruction.
-    /// $ZZ,Y
+    /// $LL,Y
     IndexedZeroPageY,
 
     /// aka "a"
-    /// $ZZZZ
+    /// $HHLL
     Absolute,
 
     /// aka "Absolute Indexed" "Indexed Addressing" "Absolute,X" "a,x"
     /// This and IndexedAbsoluteY are largely equivalent and only differ on what register is used
     /// based on instruction.
-    /// $ZZZZ,X
+    /// $HHLL,X
     IndexedAbsoluteX,
 
     /// aka "Absolute Indexed" "Indexed Addressing" "Absolute,Y" "a,y"
     /// This and IndexedAbsoluteY are largely equivalent and only differ on what register is used
     /// based on instruction.
-    /// $ZZZZ,Y
+    /// $HHLL,Y
     IndexedAbsoluteY,
 
     /// aka "(a)"
-    /// ($ZZZZ)
+    /// ($HHLL)
     Indirect,
 
     /// aka "Implicit" aka "" -- This has no abbreviation.
@@ -161,22 +159,22 @@ pub enum AddressingMode {
 
     /// aka "#v"
     /// Immediate means that the operand is not a memory location to a value but a value itself.
-    /// #$ZZ
+    /// #$BB
     Immediate,
 
     /// aka "label"
     /// This can either be a label or a 8 bit relative offset. Label below can be any name.
     /// LABEL
-    /// *+Z
-    /// *-Z
+    /// *+BB
+    /// *-BB
     Relative,
 
     /// aka "Pre-Indexed Indirect" "Indirect,X" "(d,x)"
-    /// ($ZZ, X)
+    /// ($BB, X)
     IndexedIndirect,
 
     /// aka "Post-Indexed Indirect" "Indirect,Y" "(d),y"
-    /// ($ZZ, Y)
+    /// ($LL, Y)
     IndirectIndexed
 }
 
