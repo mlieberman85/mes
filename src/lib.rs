@@ -1,5 +1,6 @@
 mod cpu;
 mod rom;
+mod bus;
 
 use std::panic;
 use wasm_bindgen::JsCast;
@@ -98,10 +99,10 @@ pub fn main_js() -> Result<(), JsValue> {
                     // FIXME: Make document a Rc RefCell which will allow borrows correctly in this closure.
                     let document = web_sys::window().unwrap().document().unwrap();
                     for line in disassembler_output.lines() {
-                        let paragraph = document.create_element("p").unwrap();
+                        let line_break = document.create_element("br").unwrap();
                         let node = document.create_text_node(line);
-                        paragraph.append_child(&node).unwrap();
-                        disassembler_output_div.borrow_mut().append_child(&paragraph).unwrap();
+                        disassembler_output_div.borrow_mut().append_child(&node).unwrap();
+                        disassembler_output_div.borrow_mut().append_child(&line_break).unwrap();
                     }
                 }) as Box<dyn FnMut(_)>);
                 file_reader.set_onload(Some(closure.as_ref().unchecked_ref()));
