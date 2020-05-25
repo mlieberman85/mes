@@ -96,6 +96,10 @@ pub enum Instruction {
     RRA,
     SLO,
     SRE,
+
+    // Below is just a helper for unknown opcode. Useful when disassembling and you hit data and not
+    // instruction.
+    UNK
 }
 
 #[derive(Debug)]
@@ -195,10 +199,11 @@ pub struct DecodedOpcode {
     pub cycles: u8
 }
 
+#[derive(Debug, Clone)]
 pub enum DecodeError {
     /// Just an error representing an illegal opcode that is also unimplemented.
     IllegalUnimplementedOpcode {
-        opcode: Opcode
+        opcode: Opcode,
     }
 }
 

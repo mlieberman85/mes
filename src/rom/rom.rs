@@ -1,18 +1,20 @@
 use crate::cpu::opcode::*;
+use crate::cpu::opcode::DecodeError::IllegalUnimplementedOpcode;
+use crate::cpu::opcode::Instruction::UNK;
 
 const ROM_START: usize = 0x8000;
 const ROM_END: usize =0xFFFF;
 
 #[derive(Debug, Clone)]
-enum ROMError {
+pub enum ROMError {
     InvalidHeader {
         header_bytes: [u8; ROMHeader::HEADER_SIZE]
     }
 }
 
-struct ROM {
+pub struct ROM {
     header: ROMHeader,
-    prg: Vec<u8>,
+    pub prg: Vec<u8>,
     chr: Vec<u8>
 }
 
@@ -113,50 +115,71 @@ impl ROMHeader {
     }
 }
 
-trait DisassembleRom {
+pub trait DisassembleRom {
     fn disassemble_prg_rom(&self) -> Result<String, DecodeError>;
 }
 
 impl DisassembleRom for ROM {
     /// Disassembles a rom into 6502 assembly. I assume this will fail on overdumped roms due to
     /// potential for junk data passed into the prg rom.
+    /// Currently this is a naive way of disassembling. A better way is to actually step through
+    /// instructions.
+    /// This also currently uses *-/*+ relative addressing. A better way is to convert relative
+    /// addresses to real addresses.
     fn disassemble_prg_rom(&self) -> Result<String, DecodeError> {
         let mut head: usize = 0;
         let mut disassembled = String::new();
-        while head < self.prg.len() {
+        while head < self.prg.len() - 1 {
+            disassembled.push_str(&format!("{:04X?}    ", head));
             let opcode = self.prg[head];
-            let decoded_opcode = opcode.decode()?;
+            let result = opcode.decode();
+            let decoded_opcode: DecodedOpcode = match result {
+                Err(IllegalUnimplementedOpcode { opcode }) => {
+                    DecodedOpcode {
+                        instruction: UNK,
+                        mode: AddressingMode::Implied,
+                        cycles: 0
+                    }
+                }
+                Ok(decoded_opcode) => decoded_opcode
+            };
             head += 1;
             // See the Addressing mode comments for what the operands look like disassembled.
             // Reminder: 6502 is little endian, so two byte operands are reversed when disassembled.
             let line = match decoded_opcode.mode {
                 AddressingMode::ZeroPage => {
-                    format!("{} ${:X?}", decoded_opcode.instruction.to_string(), self.prg[head])
+                    let temp = format!("{} ${:X?}", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    head += 1;
+                    temp
                 },
                 AddressingMode::IndexedZeroPageX => {
-                    format!("{} ${:X?},X", decoded_opcode.instruction.to_string(), self.prg[head])
+                    let temp = format!("{} ${:X?},X", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    head += 1;
+                    temp
                 },
                 AddressingMode::IndexedZeroPageY => {
-                    format!("{} ${:X?},Y", decoded_opcode.instruction.to_string(), self.prg[head])
+                    let temp = format!("{} ${:X?},Y", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    head += 1;
+                    temp
                 },
                 AddressingMode::Absolute => {
                     let temp = format!("{} ${:X?}{:X?}", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
-                    head += 1;
+                    head += 2;
                     temp
                 },
                 AddressingMode::IndexedAbsoluteX => {
                     let temp = format!("{} ${:X?}{:X?},X", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
-                    head += 1;
+                    head += 2;
                     temp
                 },
                 AddressingMode::IndexedAbsoluteY => {
                     let temp = format!("{} ${:X?}{:X?},Y", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
-                    head += 1;
+                    head += 2;
                     temp
                 },
                 AddressingMode::Indirect => {
                     let temp = format!("{} $({:X?}{:X?})", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
-                    head += 1;
+                    head += 2;
                     temp
                 },
                 AddressingMode::Implied => {
@@ -166,20 +189,27 @@ impl DisassembleRom for ROM {
                     format!("{} A", decoded_opcode.instruction.to_string())
                 },
                 AddressingMode::Immediate => {
-                    format!("{} #${:X?}", decoded_opcode.instruction.to_string(), self.prg[head])
+                    let temp = format!("{} #${:X?}", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    head += 1;
+                    temp
                 },
                 AddressingMode::Relative => {
-                    format!("{} *{}", decoded_opcode.instruction.to_string(), self.prg[head] as i8)
+                    let temp = format!("{} *{}", decoded_opcode.instruction.to_string(), self.prg[head] as i8);
+                    head += 1;
+                    temp
                 },
                 AddressingMode::IndexedIndirect => {
-                    format!("{} (${:X?}, X)", decoded_opcode.instruction.to_string(), self.prg[head])
+                    let temp = format!("{} (${:X?}, X)", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    head += 1;
+                    temp
                 },
                 AddressingMode::IndirectIndexed => {
-                    format!("{} (${:X?}), Y", decoded_opcode.instruction.to_string(), self.prg[head])
+                    let temp = format!("{} (${:X?}), Y", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    head += 1;
+                    temp
                 },
             };
             disassembled.push_str(&format!("{}\n", line));
-            head += 1;
         }
 
         Ok(disassembled)
