@@ -82,17 +82,6 @@ impl ROMHeader {
             let mut zeros: [u8; 8] = [0; 8];
             zeros.copy_from_slice(&header_bytes[8..=15]);
 
-            // If true there's trainer switches. According to most sources trainers are no longer
-            // really used however. This means we can just skip over them if they exist. If they exist
-            // in the rom they're the 512 bytes after the header.
-            let actual_rom_start_offset = {
-                if lower_mapper_bits & 0x04 != 0 {
-                    (ROMHeader::HEADER_SIZE + 512) as usize
-                } else {
-                    ROMHeader::HEADER_SIZE as usize
-                }
-            };
-
             Ok(ROMHeader {
                 nes,
                 num_prg_banks,
@@ -104,6 +93,9 @@ impl ROMHeader {
         }
     }
 
+    /// If true there's trainer switches. According to most sources trainers are no longer
+    /// really used however. This means we can just skip over them if they exist. If they exist
+    /// in the rom they're the 512 bytes after the header.
     pub fn prg_rom_start_offset(&self) -> usize {
         if self.lower_mapper_bits & 0x04 != 0 {
             (ROMHeader::HEADER_SIZE + 512) as usize
