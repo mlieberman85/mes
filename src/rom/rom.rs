@@ -1,21 +1,21 @@
-use crate::cpu::opcode::*;
 use crate::cpu::opcode::DecodeError::IllegalUnimplementedOpcode;
 use crate::cpu::opcode::Instruction::UNK;
+use crate::cpu::opcode::*;
 
 const ROM_START: usize = 0x8000;
-const ROM_END: usize =0xFFFF;
+const ROM_END: usize = 0xFFFF;
 
 #[derive(Debug, Clone)]
 pub enum ROMError {
     InvalidHeader {
-        header_bytes: [u8; ROMHeader::HEADER_SIZE]
-    }
+        header_bytes: [u8; ROMHeader::HEADER_SIZE],
+    },
 }
 
 pub struct ROM {
     header: ROMHeader,
     pub prg: Vec<u8>,
-    chr: Vec<u8>
+    chr: Vec<u8>,
 }
 
 impl ROM {
@@ -39,11 +39,7 @@ impl ROM {
         let prg = rom_bytes[header.prg_rom_start_offset()..prg_end].to_vec();
         let chr = rom_bytes[prg_end..chr_end].to_vec();
 
-        Ok(ROM {
-            header,
-            prg,
-            chr
-        })
+        Ok(ROM { header, prg, chr })
     }
 }
 
@@ -65,7 +61,7 @@ struct ROMHeader {
     upper_mapper_bits: u8,
     // Due to the NES rom spec there from byte 8 (assuming starting from 0) to byte 15 are just
     // zeros. Leaving that here also for informational purposes
-    zeros: [u8; 8]
+    zeros: [u8; 8],
 }
 
 impl ROMHeader {
@@ -74,7 +70,7 @@ impl ROMHeader {
     pub fn new(header_bytes: [u8; ROMHeader::HEADER_SIZE]) -> Result<Self, ROMError> {
         let mut nes: [u8; 4] = [0; 4];
         nes.copy_from_slice(&header_bytes[0..=3]);
-        let expected_nes :[u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
+        let expected_nes: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
         if nes != expected_nes {
             Err(ROMError::InvalidHeader { header_bytes })
         } else {
@@ -97,15 +93,21 @@ impl ROMHeader {
                 }
             };
 
-            Ok(ROMHeader { nes, num_prg_banks, num_chr_banks, lower_mapper_bits, upper_mapper_bits, zeros })
+            Ok(ROMHeader {
+                nes,
+                num_prg_banks,
+                num_chr_banks,
+                lower_mapper_bits,
+                upper_mapper_bits,
+                zeros,
+            })
         }
     }
 
     pub fn prg_rom_start_offset(&self) -> usize {
         if self.lower_mapper_bits & 0x04 != 0 {
             (ROMHeader::HEADER_SIZE + 512) as usize
-        }
-        else {
+        } else {
             ROMHeader::HEADER_SIZE as usize
         }
     }
@@ -135,86 +137,97 @@ impl DisassembleRom for ROM {
             disassembled.push_str(&format!("{:04X?} {:02X?} ", head, opcode));
             let result = opcode.decode();
             let decoded_opcode: DecodedOpcode = match result {
-                Err(IllegalUnimplementedOpcode { opcode }) => {
-                    DecodedOpcode {
-                        instruction: UNK,
-                        mode: AddressingMode::Implied,
-                        cycles: 0
-                    }
-                }
-                Ok(decoded_opcode) => decoded_opcode
+                Err(IllegalUnimplementedOpcode { opcode }) => DecodedOpcode {
+                    instruction: UNK,
+                    mode: AddressingMode::Implied,
+                    cycles: 0,
+                },
+                Ok(decoded_opcode) => decoded_opcode,
             };
             head += 1;
             let instruction = decoded_opcode.instruction.to_string();
             // See the Addressing mode comments for what the operands look like disassembled.
             // Reminder: 6502 is little endian, so two byte operands are reversed when disassembled.
             let line = match decoded_opcode.mode {
-            AddressingMode::ZeroPage => {
+                AddressingMode::ZeroPage => {
                     let operand = self.prg[head];
                     head += 1;
                     format!("{:02X?}    {} ${:02X?}", operand, instruction, operand)
-                },
+                }
                 AddressingMode::IndexedZeroPageX => {
                     let operand = self.prg[head];
                     head += 1;
                     format!("{:02X?}    {} ${:02X?},X", operand, instruction, operand)
-                },
+                }
                 AddressingMode::IndexedZeroPageY => {
                     let operand = self.prg[head];
                     head += 1;
                     format!("{:02X?}    {} ${:02X?},Y", operand, instruction, operand)
-                },
+                }
                 AddressingMode::Absolute => {
                     let lower = self.prg[head];
                     let higher = self.prg[head + 1];
                     head += 2;
-                    format!("{:02X?} {:02X?} {} ${:02X?}{:02X?}", lower, higher, instruction, higher, lower)
-                },
+                    format!(
+                        "{:02X?} {:02X?} {} ${:02X?}{:02X?}",
+                        lower, higher, instruction, higher, lower
+                    )
+                }
                 AddressingMode::IndexedAbsoluteX => {
                     let lower = self.prg[head];
                     let higher = self.prg[head + 1];
                     head += 2;
-                    format!("{:02X?} {:02X?} {} ${:02X?}{:02X?},X", lower, higher, instruction, higher, lower)
-                },
+                    format!(
+                        "{:02X?} {:02X?} {} ${:02X?}{:02X?},X",
+                        lower, higher, instruction, higher, lower
+                    )
+                }
                 AddressingMode::IndexedAbsoluteY => {
                     let lower = self.prg[head];
                     let higher = self.prg[head + 1];
                     head += 2;
-                    format!("{:02X?} {:02X?} {} ${:02X?}{:02X?},Y", lower, higher, instruction, higher, lower)
-
-                },
+                    format!(
+                        "{:02X?} {:02X?} {} ${:02X?}{:02X?},Y",
+                        lower, higher, instruction, higher, lower
+                    )
+                }
                 AddressingMode::Indirect => {
                     let lower = self.prg[head];
                     let higher = self.prg[head + 1];
                     head += 2;
-                    format!("{:02X?} {:02X?} {} $({:02X?}{:02X?})", lower, higher, instruction, higher, lower)
-                },
-                AddressingMode::Implied => {
-                    format!("      {}", instruction)
-                },
-                AddressingMode::Accumulator => {
-                    format!("      {} A", instruction)
-                },
+                    format!(
+                        "{:02X?} {:02X?} {} $({:02X?}{:02X?})",
+                        lower, higher, instruction, higher, lower
+                    )
+                }
+                AddressingMode::Implied => format!("      {}", instruction),
+                AddressingMode::Accumulator => format!("      {} A", instruction),
                 AddressingMode::Immediate => {
                     let operand = self.prg[head];
                     head += 1;
                     format!("{:02X?}    {} #${:02X?}", operand, instruction, operand)
-                },
+                }
                 AddressingMode::Relative => {
                     let operand = self.prg[head];
                     head += 1;
-                    format!("{:02X?}    {} *{}{}", operand, instruction,  if operand as i8 > 0 {"+"} else {""}, operand as i8)
-                },
+                    format!(
+                        "{:02X?}    {} *{}{}",
+                        operand,
+                        instruction,
+                        if operand as i8 > 0 { "+" } else { "" },
+                        operand as i8
+                    )
+                }
                 AddressingMode::IndexedIndirect => {
                     let operand = self.prg[head];
                     head += 1;
                     format!("{:02X?}    {} (${:02X?}, X)", operand, instruction, operand)
-                },
+                }
                 AddressingMode::IndirectIndexed => {
                     let operand = self.prg[head];
                     head += 1;
                     format!("{:02X?}    {} (${:02X?}), Y", operand, instruction, operand)
-                },
+                }
             };
             disassembled.push_str(&format!("{}\n", line));
         }
