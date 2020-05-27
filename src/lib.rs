@@ -62,7 +62,7 @@ pub fn main_js() -> Result<(), JsValue> {
 
     document.body().unwrap().append_child(&file_selector)?;
 
-    let disassembler_output_div = Rc::new(RefCell::new(document.create_element("div")?));
+    let disassembler_output_div = Rc::new(RefCell::new(document.create_element("pre")?));
     disassembler_output_div.borrow_mut().set_attribute("id", "disassembler-output")?;
 
     document.body().unwrap().append_child(&disassembler_output_div.borrow())?;
@@ -98,12 +98,8 @@ pub fn main_js() -> Result<(), JsValue> {
                     let disassembler_output = &state.borrow().rom.as_ref().unwrap().disassemble_prg_rom().unwrap();
                     // FIXME: Make document a Rc RefCell which will allow borrows correctly in this closure.
                     let document = web_sys::window().unwrap().document().unwrap();
-                    for line in disassembler_output.lines() {
-                        let line_break = document.create_element("br").unwrap();
-                        let node = document.create_text_node(line);
-                        disassembler_output_div.borrow_mut().append_child(&node).unwrap();
-                        disassembler_output_div.borrow_mut().append_child(&line_break).unwrap();
-                    }
+                    let node = document.create_text_node(disassembler_output);
+                    disassembler_output_div.borrow_mut().append_child(&node).unwrap();
                 }) as Box<dyn FnMut(_)>);
                 file_reader.set_onload(Some(closure.as_ref().unchecked_ref()));
                 closure.forget();

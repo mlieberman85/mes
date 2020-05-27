@@ -124,14 +124,15 @@ impl DisassembleRom for ROM {
     /// potential for junk data passed into the prg rom.
     /// Currently this is a naive way of disassembling. A better way is to actually step through
     /// instructions.
+    /// This can't currently differentiate between actual instructions + operands and data.
     /// This also currently uses *-/*+ relative addressing. A better way is to convert relative
     /// addresses to real addresses.
     fn disassemble_prg_rom(&self) -> Result<String, DecodeError> {
         let mut head: usize = 0;
         let mut disassembled = String::new();
         while head < self.prg.len() - 1 {
-            disassembled.push_str(&format!("{:04X?}    ", head));
             let opcode = self.prg[head];
+            disassembled.push_str(&format!("{:04X?} {:02X?} ", head, opcode));
             let result = opcode.decode();
             let decoded_opcode: DecodedOpcode = match result {
                 Err(IllegalUnimplementedOpcode { opcode }) => {
@@ -144,69 +145,75 @@ impl DisassembleRom for ROM {
                 Ok(decoded_opcode) => decoded_opcode
             };
             head += 1;
+            let instruction = decoded_opcode.instruction.to_string();
             // See the Addressing mode comments for what the operands look like disassembled.
             // Reminder: 6502 is little endian, so two byte operands are reversed when disassembled.
             let line = match decoded_opcode.mode {
-                AddressingMode::ZeroPage => {
-                    let temp = format!("{} ${:X?}", decoded_opcode.instruction.to_string(), self.prg[head]);
+            AddressingMode::ZeroPage => {
+                    let operand = self.prg[head];
                     head += 1;
-                    temp
+                    format!("{:02X?}    {} ${:02X?}", operand, instruction, operand)
                 },
                 AddressingMode::IndexedZeroPageX => {
-                    let temp = format!("{} ${:X?},X", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    let operand = self.prg[head];
                     head += 1;
-                    temp
+                    format!("{:02X?}    {} ${:02X?},X", operand, instruction, operand)
                 },
                 AddressingMode::IndexedZeroPageY => {
-                    let temp = format!("{} ${:X?},Y", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    let operand = self.prg[head];
                     head += 1;
-                    temp
+                    format!("{:02X?}    {} ${:02X?},Y", operand, instruction, operand)
                 },
                 AddressingMode::Absolute => {
-                    let temp = format!("{} ${:X?}{:X?}", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
+                    let lower = self.prg[head];
+                    let higher = self.prg[head + 1];
                     head += 2;
-                    temp
+                    format!("{:02X?} {:02X?} {} ${:02X?}{:02X?}", lower, higher, instruction, higher, lower)
                 },
                 AddressingMode::IndexedAbsoluteX => {
-                    let temp = format!("{} ${:X?}{:X?},X", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
+                    let lower = self.prg[head];
+                    let higher = self.prg[head + 1];
                     head += 2;
-                    temp
+                    format!("{:02X?} {:02X?} {} ${:02X?}{:02X?},X", lower, higher, instruction, higher, lower)
                 },
                 AddressingMode::IndexedAbsoluteY => {
-                    let temp = format!("{} ${:X?}{:X?},Y", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
+                    let lower = self.prg[head];
+                    let higher = self.prg[head + 1];
                     head += 2;
-                    temp
+                    format!("{:02X?} {:02X?} {} ${:02X?}{:02X?},Y", lower, higher, instruction, higher, lower)
+
                 },
                 AddressingMode::Indirect => {
-                    let temp = format!("{} $({:X?}{:X?})", decoded_opcode.instruction.to_string(), self.prg[head + 1], self.prg[head]);
+                    let lower = self.prg[head];
+                    let higher = self.prg[head + 1];
                     head += 2;
-                    temp
+                    format!("{:02X?} {:02X?} {} $({:02X?}{:02X?})", lower, higher, instruction, higher, lower)
                 },
                 AddressingMode::Implied => {
-                    format!("{}", decoded_opcode.instruction.to_string())
+                    format!("      {}", instruction)
                 },
                 AddressingMode::Accumulator => {
-                    format!("{} A", decoded_opcode.instruction.to_string())
+                    format!("      {} A", instruction)
                 },
                 AddressingMode::Immediate => {
-                    let temp = format!("{} #${:X?}", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    let operand = self.prg[head];
                     head += 1;
-                    temp
+                    format!("{:02X?}    {} #${:02X?}", operand, instruction, operand)
                 },
                 AddressingMode::Relative => {
-                    let temp = format!("{} *{}", decoded_opcode.instruction.to_string(), self.prg[head] as i8);
+                    let operand = self.prg[head];
                     head += 1;
-                    temp
+                    format!("{:02X?}    {} *{}{}", operand, instruction,  if operand as i8 > 0 {"+"} else {""}, operand as i8)
                 },
                 AddressingMode::IndexedIndirect => {
-                    let temp = format!("{} (${:X?}, X)", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    let operand = self.prg[head];
                     head += 1;
-                    temp
+                    format!("{:02X?}    {} (${:02X?}, X)", operand, instruction, operand)
                 },
                 AddressingMode::IndirectIndexed => {
-                    let temp = format!("{} (${:X?}), Y", decoded_opcode.instruction.to_string(), self.prg[head]);
+                    let operand = self.prg[head];
                     head += 1;
-                    temp
+                    format!("{:02X?}    {} (${:02X?}), Y", operand, instruction, operand)
                 },
             };
             disassembled.push_str(&format!("{}\n", line));
