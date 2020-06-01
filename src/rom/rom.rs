@@ -2,9 +2,6 @@ use crate::cpu::opcode::DecodeError::IllegalUnimplementedOpcode;
 use crate::cpu::opcode::Instruction::UNK;
 use crate::cpu::opcode::*;
 
-const ROM_START: usize = 0x8000;
-const ROM_END: usize = 0xFFFF;
-
 #[derive(Debug, Clone)]
 pub enum ROMError {
     InvalidHeader {
