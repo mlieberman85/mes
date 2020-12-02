@@ -1,6 +1,7 @@
 use crate::cpu::opcode::DecodeError::IllegalUnimplementedOpcode;
 use crate::cpu::opcode::Instruction::UNK;
 use crate::cpu::opcode::*;
+use crate::rom::mapper::*;
 
 #[derive(Debug, Clone)]
 pub enum ROMError {
@@ -13,6 +14,7 @@ pub struct ROM {
     header: ROMHeader,
     pub prg: Vec<u8>,
     chr: Vec<u8>,
+    pub mapper: Box<dyn Mapper>
 }
 
 impl ROM {
@@ -35,8 +37,19 @@ impl ROM {
 
         let prg = rom_bytes[header.prg_rom_start_offset()..prg_end].to_vec();
         let chr = rom_bytes[prg_end..chr_end].to_vec();
+        let mapper = create_mapper(&header);
 
-        Ok(ROM { header, prg, chr })
+        Ok(ROM { header, prg, chr, mapper })
+    }
+}
+
+fn create_mapper(header: &ROMHeader) -> Box<dyn Mapper> {
+    match header.mapper_id() {
+        0 => Box::new(Nrom {
+            num_prg_banks: header.num_prg_banks,
+            num_chr_banks: header.num_chr_banks
+        }),
+        _ => unimplemented!()
     }
 }
 

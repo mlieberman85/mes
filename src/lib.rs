@@ -11,6 +11,8 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::__rt::core::cell::RefCell;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
+use crate::cpu::cpu::CPU;
+use web_sys::console::debug;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
@@ -22,15 +24,22 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 pub struct State {
     rom: Option<ROM>,
+    cpu: Option<CPU>
 }
 
 impl State {
     pub fn new() -> Self {
-        State { rom: None }
+        State { rom: None, cpu: None }
     }
 
     pub fn set_rom(&mut self, rom_bytes: Vec<u8>) -> Result<(), ROMError> {
         self.rom = Some(ROM::new(rom_bytes)?);
+        Ok(())
+    }
+
+    pub fn set_cpu(&mut self, rom_bytes: Vec<u8>) -> Result<(), ROMError> {
+        self.rom = Some(ROM::new(rom_bytes.clone())?);
+        self.cpu = Some(CPU::new(rom_bytes));
         Ok(())
     }
 }
@@ -64,10 +73,20 @@ pub fn main_js() -> Result<(), JsValue> {
         .borrow_mut()
         .set_attribute("id", "disassembler-output")?;
 
+    let debug_output_div = Rc::new(RefCell::new(document.create_element("pre")?));
+    debug_output_div
+        .borrow_mut()
+        .set_attribute("id", "debug-output")?;
+
     document
         .body()
         .unwrap()
         .append_child(&disassembler_output_div.borrow())?;
+
+    document
+        .body()
+        .unwrap()
+        .append_child(&debug_output_div.borrow())?;
 
     let rom_selector: web_sys::HtmlInputElement = document
         .get_element_by_id("rom-selector")
@@ -84,6 +103,7 @@ pub fn main_js() -> Result<(), JsValue> {
             {
                 let state = Rc::clone(&state);
                 let disassembler_output_div = Rc::clone(&disassembler_output_div);
+                let debug_output_div = Rc::clone(&debug_output_div);
                 // Most of below based on this github issue: https://github.com/rustwasm/wasm-bindgen/issues/1292
                 let mut closure = Closure::wrap(Box::new(move |event: web_sys::Event| {
                     let file_reader: web_sys::FileReader =
@@ -93,7 +113,7 @@ pub fn main_js() -> Result<(), JsValue> {
                     let mut rom_vec: Vec<u8> = vec![0; rom.length() as usize];
                     rom.copy_to(&mut rom_vec);
 
-                    state.borrow_mut().set_rom(rom_vec);
+                    state.borrow_mut().set_cpu(rom_vec);
                     let mut debug_string = String::new();
                     for byte in &state.borrow().rom.as_ref().unwrap().prg {
                         debug_string.push_str(&format!("{:X} ", byte));
@@ -113,6 +133,25 @@ pub fn main_js() -> Result<(), JsValue> {
                         .borrow_mut()
                         .append_child(&node)
                         .unwrap();
+
+                    // FIXME: fix below
+                    let mut nestest_output = String::new();
+                    let mut last_pc = 0;
+                    let mut loc_state = state.borrow_mut();
+                    let cpu = loc_state.cpu.as_mut().unwrap();
+                    while cpu.total_cycles <= 26554 {
+                        let debug = cpu.debug_clock();
+                        if last_pc != cpu.pc {
+                            nestest_output.push_str(&format!("{}\n", debug).to_string());
+                            last_pc = cpu.pc;
+                        }
+                    }
+
+                    let debug_node = document.create_text_node(&nestest_output);
+                    debug_output_div
+                        .borrow_mut()
+                        .append_child(&debug_node)
+                        .unwrap();
                 }) as Box<dyn FnMut(_)>);
                 file_reader.set_onload(Some(closure.as_ref().unchecked_ref()));
                 closure.forget();
@@ -122,8 +161,6 @@ pub fn main_js() -> Result<(), JsValue> {
             .add_event_listener_with_callback("change", closure.as_ref().unchecked_ref())?;
         closure.forget();
     }
-
-    console::log_1(&JsValue::from_str("Hello world!"));
 
     Ok(())
 }

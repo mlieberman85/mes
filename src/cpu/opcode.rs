@@ -17,6 +17,7 @@ pub enum Instruction {
     BMI, // Branch on Result Minus
     BNE, // Branch on Result not Zero
     BPL, // Branch on Result Plus
+
     BRK, // Force Break
     BVC, // Branch on Overflow Clear
     BVS, // Branch on Overflow Set
@@ -79,10 +80,10 @@ pub enum Instruction {
 
     // Below are all illegal aka unofficial instructions
     // Combined Instructions
-    // ALR, - Not worth implementing now
-    // ANC, - Not worth implementing now
-    // ARR, - Not worth implementing now
-    // AXS, - Not worth implementing now
+    ALR,
+    ANC,
+    ARR,
+    AXS,
     LAX,
     SAX,
 
@@ -180,7 +181,7 @@ pub enum AddressingMode {
     IndirectIndexed,
 }
 
-type Opcode = u8;
+pub type Opcode = u8;
 
 #[derive(Debug, Clone, Copy)]
 /// A combination of instruction, addressing mode, and number of cycles the instruction-addressing
